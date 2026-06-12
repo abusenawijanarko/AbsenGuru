@@ -1,0 +1,64 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Safety default catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Helper to fetch user role from Firestore directly to protect against client spoofing
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        getUserData().role == 'admin';
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // 2. Users Collection
+    match /users/{userId} {
+      // A user is allowed to read their own data or an admin can read any user profile
+      allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
+      
+      // Allow general list of users for administration management
+      allow list: if isSignedIn() && isAdmin();
+      
+      // Admin has complete write permissions (adding new teachers, modifying active status)
+      // Regular users cannot change their own roles or register their own faces unless done by an admin
+      allow create, update: if isSignedIn() && (isAdmin() || (isOwner(userId) && !request.resource.data.keys().hasAny(['role', 'face_descriptor', 'is_active'])));
+      allow delete: if isSignedIn() && isAdmin();
+    }
+
+    // 3. Attendance Collection
+    match /attendance/{attendanceId} {
+      // Admin can query everything, teachers can only fetch logs which correspond to their own user IDs
+      allow get, list: if isSignedIn() && (isAdmin() || (resource != null && resource.data.uid == request.auth.uid));
+      
+      // Teachers can create check-in entries if they match their current logged-in UID. Admin can write for any.
+      allow create: if isSignedIn() && (request.resource.data.uid == request.auth.uid || isAdmin());
+      
+      // Teachers can modify records if it is their own log. Admin can modify any record (such as administrative corrections).
+      allow update: if isSignedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+      
+      // Teachers are forbidden from deleting records, only admins can perform destructive changes if needed
+      allow delete: if isSignedIn() && isAdmin();
+    }
+
+    // 4. Monthly Rekap Collection
+    match /rekap_bulanan/{rekapId} {
+      allow get, list: if isSignedIn() && (isAdmin() || (resource != null && resource.data.uid == request.auth.uid));
+      allow create, update, delete: if isSignedIn() && isAdmin();
+    }
+  }
+}

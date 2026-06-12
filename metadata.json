@@ -1,0 +1,11 @@
+{
+  "name": "AbsenGuru",
+  "description": "Sistem absensi kehadiran guru berbasis pengenalan wajah (Face Recognition), geofencing GPS, dan rekapitulasi data untuk Politeknik IDN Boarding School.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

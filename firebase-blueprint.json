@@ -1,0 +1,74 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile for teachers and admins at Politeknik IDN Boarding School",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "full_name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "guru"] },
+        "phone": { "type": "string" },
+        "is_active": { "type": "boolean" },
+        "face_descriptor": { "type": "array", "description": "Array of 128 indices representing the face feature vector extracted from the teacher's profile picture" },
+        "photo_url": { "type": "string" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["uid", "full_name", "email", "role", "is_active", "created_at"]
+    },
+    "Attendance": {
+      "title": "Attendance",
+      "description": "Teacher check-in and check-out tracking entries",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "date": { "type": "string", "description": "Local date in YYYY-MM-DD format" },
+        "check_in_time": { "type": "string", "description": "Time check-in was captured in local HH:MM" },
+        "check_out_time": { "type": "string", "description": "Time check-out was captured in local HH:MM" },
+        "lat_in": { "type": "number" },
+        "lng_in": { "type": "number" },
+        "lat_out": { "type": "number" },
+        "lng_out": { "type": "number" },
+        "face_verified_in": { "type": "boolean" },
+        "face_verified_out": { "type": "boolean" },
+        "is_within_area": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["tepat_waktu", "terlambat", "tidak_hadir"] },
+        "notes": { "type": "string" },
+        "modified_by_admin": { "type": "boolean" },
+        "modified_at": { "type": "string" }
+      },
+      "required": ["id", "uid", "date"]
+    },
+    "RekapBulanan": {
+      "title": "RekapBulanan",
+      "description": "Aggregated monthly school summary metrics per user",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "month": { "type": "string", "description": "Format MM" },
+        "year": { "type": "number" },
+        "total_hadir": { "type": "number" },
+        "total_terlambat": { "type": "number" },
+        "total_tidak_hadir": { "type": "number" },
+        "total_hari_kerja": { "type": "number" }
+      },
+      "required": ["uid", "month", "year", "total_hadir", "total_terlambat", "total_tidak_hadir", "total_hari_kerja"]
+    }
+  },
+  "firestore": {
+    "users": {
+      "schema": "User",
+      "description": "Collection storing authentication profiles, descriptors, status, and permissions"
+    },
+    "attendance": {
+      "schema": "Attendance",
+      "description": "Collection tracking daily check-ins and check-outs"
+    },
+    "rekap_bulanan": {
+      "schema": "RekapBulanan",
+      "description": "Collection storing pre-calculated monthly attendance counts for analytics"
+    }
+  }
+}
