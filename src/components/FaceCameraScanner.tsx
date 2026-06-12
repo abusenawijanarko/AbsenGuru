@@ -27,40 +27,32 @@ export const FaceCameraScanner: React.FC<FaceCameraScannerProps> = ({
 
   // Load faceapi models
   useEffect(() => {
-    let attempts = 0;
-    const maxAttempts = 20; // 10 seconds (20 * 500ms)
-    
-    let checkInterval = setInterval(() => {
-      attempts++;
-      
-      if (isFaceApiLoaded()) {
-        clearInterval(checkInterval);
+    let mounted = true;
+    (async () => {
+      try {
+        if (!isFaceApiLoaded()) {
+          setScanningStatus('Mengunduh modul pengenalan wajah biometrik dari jaringan...');
+        }
         
-        const faceapi = (window as any).faceapi;
-        if (faceapi.nets.ssdMobilenetv1.isLoaded && faceapi.nets.faceLandmark68Net.isLoaded && faceapi.nets.faceRecognitionNet.isLoaded) {
+        // Wait for it to be loaded (this will also pull the CDN script if needed)
+        await loadFaceApiModels((msg) => {
+          if (mounted) setScanningStatus(msg);
+        });
+
+        if (mounted) {
           setModelsLoaded(true);
           setScanningStatus('Kamera Siap. Posisikan wajah Anda di dalam lingkaran.');
-        } else {
-          loadFaceApiModels((msg) => setScanningStatus(msg))
-            .then(() => {
-              setModelsLoaded(true);
-              setScanningStatus('Kamera Siap. Posisikan wajah Anda di dalam lingkaran.');
-            })
-            .catch((err) => {
-              console.error('Failed to load face-api models:', err);
-              setScanningStatus('Gagal memuat model. Aktifkan simulasi.');
-              setSimulationActive(true);
-            });
         }
-      } else if (attempts >= maxAttempts) {
-        clearInterval(checkInterval);
-        console.warn('Face API load timeout. Switching to simulation mode.');
-        setScanningStatus('Gagal memuat modul face-api. Beralih ke mode simulasi.');
-        setSimulationActive(true);
+      } catch (err) {
+        console.error('Failed to load face-api models:', err);
+        if (mounted) {
+          setScanningStatus('Gagal memuat pustaka wajah. Beralih ke fallback simulasi otomatis.');
+          setSimulationActive(true);
+        }
       }
-    }, 500);
+    })();
 
-    return () => clearInterval(checkInterval);
+    return () => { mounted = false; };
   }, []);
 
   // Set up camera
@@ -355,7 +347,7 @@ export const FaceCameraScanner: React.FC<FaceCameraScannerProps> = ({
               {!modelsLoaded && !simulationActive && (
                 <div className="absolute inset-0 bg-slate-900/90 text-white flex flex-col items-center justify-center gap-3 p-4 text-center z-20">
                   <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                  <p className="text-xs text-slate-300 font-medium">{scanningStatus.includes('Memulai') || scanningStatus.includes('Memuat') ? scanningStatus : 'Sedang memuat pustaka wajah...'}</p>
+                  <p className="text-xs text-slate-300 font-medium">{scanningStatus}</p>
                 </div>
               )}
             </>

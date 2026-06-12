@@ -86,13 +86,42 @@ export function isFaceApiLoaded(): boolean {
 }
 
 /**
+ * Load face-api.js script dynamically
+ */
+export async function loadFaceApiScript(onProgress?: (msg: string) => void): Promise<void> {
+  if (isFaceApiLoaded()) return Promise.resolve();
+
+  return new Promise((resolve, reject) => {
+    onProgress?.('Mengunduh engine face-api.js...');
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js';
+    script.crossOrigin = 'anonymous';
+    
+    const timeout = setTimeout(() => {
+      reject(new Error('Koneksi lambat, membatalkan unduhan...'));
+    }, 15000); // 15s timeout
+
+    script.onload = () => {
+      clearTimeout(timeout);
+      if (isFaceApiLoaded()) resolve();
+      else reject(new Error('Script loaded but faceapi global not found'));
+    };
+    script.onerror = () => {
+      clearTimeout(timeout);
+      reject(new Error('Gagal memuat script face-api.js dari CDN'));
+    };
+    document.head.appendChild(script);
+  });
+}
+
+/**
  * Dynamically loads standard weights from the official weights CDN
  */
 export async function loadFaceApiModels(
   onProgress?: (msg: string) => void
 ): Promise<void> {
   if (!isFaceApiLoaded()) {
-    throw new Error('Pustaka face-api.js tidak termuat di peramban.');
+    await loadFaceApiScript(onProgress);
   }
   
   const faceapi = (window as any).faceapi;
