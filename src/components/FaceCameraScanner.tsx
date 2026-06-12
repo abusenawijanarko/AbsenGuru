@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Camera, RefreshCw, AlertCircle, Sparkles, CheckCircle2, XCircle } from 'lucide-react';
-import { isFaceApiLoaded } from '../utils/geoFaceHelpers';
+import { isFaceApiLoaded, loadFaceApiModels } from '../utils/geoFaceHelpers';
 import { AppUser } from '../types';
 
 interface FaceCameraScannerProps {
@@ -25,21 +25,40 @@ export const FaceCameraScanner: React.FC<FaceCameraScannerProps> = ({
   const [simulationActive, setSimulationActive] = useState(false);
   const [scanResult, setScanResult] = useState<{ success: boolean; msg: string } | null>(null);
 
-  // Poll for faceapi load status
+  // Load faceapi models
   useEffect(() => {
+    let attempts = 0;
+    const maxAttempts = 20; // 10 seconds (20 * 500ms)
+    
     let checkInterval = setInterval(() => {
+      attempts++;
+      
       if (isFaceApiLoaded()) {
+        clearInterval(checkInterval);
+        
         const faceapi = (window as any).faceapi;
-        // Check if models are fully loaded
         if (faceapi.nets.ssdMobilenetv1.isLoaded && faceapi.nets.faceLandmark68Net.isLoaded && faceapi.nets.faceRecognitionNet.isLoaded) {
           setModelsLoaded(true);
           setScanningStatus('Kamera Siap. Posisikan wajah Anda di dalam lingkaran.');
-          clearInterval(checkInterval);
         } else {
-          setScanningStatus('Menunggu model pengenalan wajah dimuat...');
+          loadFaceApiModels((msg) => setScanningStatus(msg))
+            .then(() => {
+              setModelsLoaded(true);
+              setScanningStatus('Kamera Siap. Posisikan wajah Anda di dalam lingkaran.');
+            })
+            .catch((err) => {
+              console.error('Failed to load face-api models:', err);
+              setScanningStatus('Gagal memuat model. Aktifkan simulasi.');
+              setSimulationActive(true);
+            });
         }
+      } else if (attempts >= maxAttempts) {
+        clearInterval(checkInterval);
+        console.warn('Face API load timeout. Switching to simulation mode.');
+        setScanningStatus('Gagal memuat modul face-api. Beralih ke mode simulasi.');
+        setSimulationActive(true);
       }
-    }, 1000);
+    }, 500);
 
     return () => clearInterval(checkInterval);
   }, []);
@@ -333,10 +352,10 @@ export const FaceCameraScanner: React.FC<FaceCameraScannerProps> = ({
                 </div>
               </div>
 
-              {!modelsLoaded && (
-                <div className="absolute inset-0 bg-slate-900/90 text-white flex flex-col items-center justify-center gap-2 p-4 text-center">
-                  <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                  <p className="text-xs text-slate-400">Sedang mengunduh modul pengenalan wajah biometrik (face-api.js) dari CDN...</p>
+              {!modelsLoaded && !simulationActive && (
+                <div className="absolute inset-0 bg-slate-900/90 text-white flex flex-col items-center justify-center gap-3 p-4 text-center z-20">
+                  <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-xs text-slate-300 font-medium">{scanningStatus.includes('Memulai') || scanningStatus.includes('Memuat') ? scanningStatus : 'Sedang memuat pustaka wajah...'}</p>
                 </div>
               )}
             </>
